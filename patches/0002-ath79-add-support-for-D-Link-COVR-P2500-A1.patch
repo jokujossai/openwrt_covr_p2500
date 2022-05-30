@@ -1,0 +1,375 @@
+ath79: add support for D-Link COVR-P2500 A1
+
+Specifications:
+* QCA9563, 16 MiB flash, 128 MiB RAM, 2T2R 802.11n
+* QCA9886 2T2R 801.11ac Wave 2
+* QCA7550 Homeplug AV2 1300
+* AR8337, 3 Gigabit ports (1, 2: LAN; 3: WAN)
+
+To make use of PLC functionality, firmware needs to be
+provided via plchost (QCA7550 comes without SPI NOR),
+patched with the Network Password and MAC.
+
+Installation:
+* OEM Web UI is at 192.168.0.50
+  flash factory.bin
+
+Recovery:
+* Hold down reset button during power-on
+  Recovery Web UI is at 192.168.0.50
+  flash recovery.img (does not work on soem browsers)
+---
+ include/image-commands.mk                     |   4 +
+ scripts/dlink-sge-signature.py                |  35 +++++
+ .../ath79/dts/qca9563_dlink_covr-p2500-a1.dts | 177 ++++++++++++++++++
+ .../generic/base-files/etc/board.d/02_network |   9 +
+ .../etc/hotplug.d/firmware/11-ath10k-caldata  |   7 +
+ .../etc/hotplug.d/ieee80211/10_fix_wifi_mac   |   4 +
+ target/linux/ath79/image/generic.mk           |  30 +++
+ 7 files changed, 266 insertions(+), 0 deletion(-)
+ create mode 100755 scripts/dlink-sge-signature.py
+ create mode 100644 target/linux/ath79/dts/qca9563_dlink_covr-p2500-a1.dts
+
+diff --git a/include/image-commands.mk b/include/image-commands.mk
+--- a/include/image-commands.mk
++++ b/include/image-commands.mk
+@@ -23,6 +23,10 @@ define Build/append-dtb-elf
+ 		.appended_dtb=$(KDIR)/image-$(firstword $(DEVICE_DTS)).dtb $@
+ endef
+ 
++define Build/append-file
++	dd if=$(1) >> $@
++endef
++
+ define Build/append-kernel
+ 	dd if=$(IMAGE_KERNEL) >> $@
+ endef
+diff --git a/scripts/dlink-sge-signature.py b/scripts/dlink-sge-signature.py
+new file mode 100755
+--- /dev/null
++++ b/scripts/dlink-sge-signature.py
+@@ -0,0 +1,35 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++#
++# Copyright (C) 2021 Sebastian Schaper <openwrt@sebastianschaper.net>
++#
++# append model string and gzip-based signature used by
++# certain D-Link devices manufactured by SGE / T&W.
++#
++# e.g. COVR-P2500 requires this to be appended to the
++# encrypted factory image, while for COVR-C1200 the
++# signature needs to be appended to the unencrypted payload
++#
++
++import gzip, hashlib, sys
++
++if len(sys.argv) != 3:
++    exit(f"usage: {sys.argv[0]} input.bin model_name")
++
++input_file = sys.argv[1]
++model_name = sys.argv[2]
++
++with open(input_file, "rb+") as fd:
++    input_bytes = fd.read()
++
++    gzipped = gzip.compress(input_bytes)[-8:-4]
++    m = hashlib.md5()
++    m.update(input_bytes)
++
++    fd.write(m.hexdigest().encode())
++    fd.write(f"\n{model_name}\n".encode())
++    fd.write(gzipped[::-1].hex().encode()) # change byte order
++
++    exit()
++
++exit(1)
+diff --git a/target/linux/ath79/dts/qca9563_dlink_covr-p2500-a1.dts b/target/linux/ath79/dts/qca9563_dlink_covr-p2500-a1.dts
+new file mode 100644
+--- /dev/null
++++ b/target/linux/ath79/dts/qca9563_dlink_covr-p2500-a1.dts
+@@ -0,0 +1,177 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++
++#include "qca956x.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/mtd/partitions/uimage.h>
++
++/ {
++	compatible = "dlink,covr-p2500-a1", "qca,qca9563";
++	model = "D-Link COVR-P2500 A1";
++
++	aliases {
++		led-boot = &led_power_green;
++		led-failsafe = &led_power_red;
++		led-running = &led_power_green;
++		led-upgrade = &led_power_red;
++	};
++
++	keys {
++		compatible = "gpio-keys";
++
++		wps {
++			label = "wps";
++			linux,code = <KEY_WPS_BUTTON>;
++			gpios = <&gpio 1 GPIO_ACTIVE_LOW>;
++		};
++
++		reset {
++			label = "reset";
++			linux,code = <KEY_RESTART>;
++			gpios = <&gpio 2 GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++		pinctrl-names = "default";
++		pinctrl-0 = <&jtag_disable_pins>;
++
++		lan {
++			label = "green:lan";
++			gpios = <&gpio 6 GPIO_ACTIVE_LOW>;
++		};
++
++		led_power_green: power_green {
++			label = "green:power";
++			gpios = <&gpio 7 GPIO_ACTIVE_LOW>;
++			default-state = "on";
++		};
++
++		wlan2g {
++			label = "green:wlan5g";
++			gpios = <&gpio 8 GPIO_ACTIVE_LOW>;
++		};
++
++		led_power_red: power_red {
++			label = "red:power";
++			gpios = <&gpio 15 GPIO_ACTIVE_LOW>;
++		};
++
++		wlan5g {
++			label = "green:wlan2g";
++			gpios = <&gpio 19 GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	virtual_flash {
++		compatible = "mtd-concat";
++
++		devices = <&fwconcat0 &fwconcat1>;
++
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			partition@0 {
++				compatible = "openwrt,uimage", "denx,uimage";
++				openwrt,ih-magic = <0x68737173>;
++				label = "firmware";
++				reg = <0x0 0x0>;
++			};
++		};
++	};
++};
++
++&spi {
++	status = "okay";
++
++	flash@0 {
++		compatible = "jedec,spi-nor";
++		reg = <0>;
++		spi-max-frequency = <50000000>;
++
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			partition@0 {
++				label = "u-boot";
++				reg = <0x0 0x40000>;
++				read-only;
++			};
++
++			partition@40000 {
++				label = "u-boot-env";
++				reg = <0x40000 0x10000>;
++				read-only;
++			};
++
++			fwconcat0: partition@50000 {
++				label = "fwconcat0";
++				reg = <0x50000 0xe30000>;
++			};
++
++			partition@e80000 {
++				label = "loader";
++				reg = <0xe80000 0x10000>;
++				read-only;
++			};
++
++			fwconcat1: partition@e90000 {
++				label = "fwconcat1";
++				reg = <0xe90000 0x160000>;
++			};
++
++			art: partition@ff0000 {
++				label = "art";
++				reg = <0xff0000 0x10000>;
++				read-only;
++			};
++		};
++	};
++};
++
++&pcie {
++	status = "okay";
++};
++
++&mdio0 {
++	status = "okay";
++
++	phy-mask = <0>;
++
++	phy0: ethernet-phy@0 {
++		reg = <0>;
++		qca,mib-poll-interval = <500>;
++		reset-gpios = <&gpio 11 GPIO_ACTIVE_LOW>;
++
++		qca,ar8327-initvals = <
++			0x04 0x00080080 /* PORT0 PAD MODE CTRL */
++			0x10 0x81000080 /* POWER_ON_STRAP */
++			0x50 0xcc35cc35 /* LED_CTRL0 */
++			0x54 0xcb37cb37 /* LED_CTRL1 */
++			0x58 0x00000000 /* LED_CTRL2 */
++			0x5c 0x00f3cf00 /* LED_CTRL3 */
++			0x7c 0x0000007e /* PORT0_STATUS */
++			>;
++	};
++};
++
++&eth0 {
++	status = "okay";
++
++	pll-data = <0x03000101 0x00000101 0x00001919>;
++
++	phy-mode = "sgmii";
++	phy-handle = <&phy0>;
++};
++
++&wmac {
++	status = "okay";
++
++	mtd-cal-data = <&art 0x1000>;
++};
+diff --git a/target/linux/ath79/generic/base-files/etc/board.d/02_network b/target/linux/ath79/generic/base-files/etc/board.d/02_network
+--- a/target/linux/ath79/generic/base-files/etc/board.d/02_network
++++ b/target/linux/ath79/generic/base-files/etc/board.d/02_network
+@@ -208,6 +208,10 @@ ath79_setup_interfaces()
+ 		ucidef_add_switch "switch0" \
+ 			"0@eth0" "2:wan" "3:lan" "4:lan"
+ 		;;
++	dlink,covr-p2500-a1)
++		ucidef_add_switch "switch0" \
++			"0@eth0" "1:lan" "2:lan" "3:wan" "4:plc"
++		;;
+ 	dlink,dap-2695-a1)
+ 		ucidef_add_switch "switch0" \
+ 			"0@eth0" "2:lan" "3:wan" "6@eth1"
+@@ -500,6 +504,11 @@ ath79_setup_macs()
+ 	devolo,magic-2-wifi)
+ 		label_mac=$(macaddr_add "$(mtd_get_mac_binary art 0x1002)" 3)
+ 		;;
++	dlink,covr-p2500-a1)
++		lan_mac=$(mtd_get_mac_ascii art "protest_lan_mac")
++		wan_mac=$(mtd_get_mac_ascii art "protest_wan_mac")
++		label_mac=$(mtd_get_mac_ascii art "protest_plc_mac")
++		;;
+ 	dlink,dap-1330-a1|\
+ 	dlink,dap-1365-a1|\
+ 	dlink,dch-g020-a1)
+diff --git a/target/linux/ath79/generic/base-files/etc/hotplug.d/firmware/11-ath10k-caldata b/target/linux/ath79/generic/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
+--- a/target/linux/ath79/generic/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
++++ b/target/linux/ath79/generic/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
+@@ -181,6 +181,13 @@ case "$FIRMWARE" in
+ 			/lib/firmware/ath10k/QCA9888/hw2.0/board.bin
+ 		rm /lib/firmware/ath10k/QCA9888/hw2.0/board-2.bin
+ 		;;
++	dlink,covr-p2500-a1)
++		caldata_extract "art" 0x5000 0x2f20
++		ath10k_patch_mac $(mtd_get_mac_ascii art "protest_ath1_mac")
++		ln -sf /lib/firmware/ath10k/pre-cal-pci-0000\:00\:00.0.bin \
++			/lib/firmware/ath10k/QCA9888/hw2.0/board.bin
++		rm /lib/firmware/ath10k/QCA9888/hw2.0/board-2.bin
++		;;
+ 	dlink,dap-2680-a1)
+ 		caldata_extract "art" 0x5000 0x2f20
+ 		ath10k_patch_mac $(mtd_get_mac_ascii bdcfg wlanmac_a)
+diff --git a/target/linux/ath79/generic/base-files/etc/hotplug.d/ieee80211/10_fix_wifi_mac b/target/linux/ath79/generic/base-files/etc/hotplug.d/ieee80211/10_fix_wifi_mac
+--- a/target/linux/ath79/generic/base-files/etc/hotplug.d/ieee80211/10_fix_wifi_mac
++++ b/target/linux/ath79/generic/base-files/etc/hotplug.d/ieee80211/10_fix_wifi_mac
+@@ -17,6 +17,10 @@ case "$board" in
+ 	adtran,bsap1840)
+ 		macaddr_add "$(mtd_get_mac_binary 'Board data' 2)" $(($PHYNBR * 8 + 1)) > /sys${DEVPATH}/macaddress
+ 		;;
++	dlink,covr-p2500-a1)
++		[ "$PHYNBR" -eq 1 ] && \
++			mtd_get_mac_ascii art "protest_ath0_mac" > /sys${DEVPATH}/macaddress
++		;;
+ 	dlink,dap-1330-a1|\
+ 	dlink,dap-1365-a1|\
+ 	dlink,dch-g020-a1)
+diff --git a/target/linux/ath79/image/generic.mk b/target/linux/ath79/image/generic.mk
+--- a/target/linux/ath79/image/generic.mk
++++ b/target/linux/ath79/image/generic.mk
+@@ -48,6 +48,10 @@ define Build/cybertan-trx
+ 	-rm $@-empty.bin
+ endef
+ 
++define Build/dlink-sge-signature
++	$(TOPDIR)/scripts/dlink-sge-signature.py $@ $(1)
++endef
++
+ define Build/edimax-headers
+ 	$(eval edimax_magic=$(word 1,$(1)))
+ 	$(eval edimax_model=$(word 2,$(1)))
+@@ -717,6 +721,32 @@ define Device/dlink_covr-c1200-a1
+ endef
+ TARGET_DEVICES += devolo_magic-2-wifi
+ 
++define Device/dlink_covr-p2500-a1
++  SOC := qca9563
++  DEVICE_VENDOR := D-Link
++  DEVICE_MODEL := COVR-P2500
++  DEVICE_VARIANT := A1
++  DEVICE_PACKAGES := kmod-ath10k-ct ath10k-firmware-qca9888-ct \
++	open-plc-utils open-plc-utils-hpavkey open-plc-utils-modpib \
++	open-plc-utils-plchost open-plc-utils-plctool
++  LOADER_TYPE := bin
++  LOADER_FLASH_OFFS := 0x050000
++  LOADER_KERNEL_MAGIC := 0x68737173
++  COMPILE := loader-$(1).bin loader-$(1).uImage
++  COMPILE/loader-$(1).bin := loader-okli-compile
++  COMPILE/loader-$(1).uImage := append-loader-okli $(1) | pad-to 64k | \
++	lzma | uImage lzma
++  KERNEL := kernel-bin | append-dtb | lzma | uImage lzma -M 0x68737173
++  IMAGE_SIZE := 14528k
++  IMAGES += factory.bin recovery.bin
++  IMAGE/recovery.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | \
++	append-rootfs | pad-rootfs | check-size | pad-to 14528k | \
++	append-file $(KDIR)/loader-$(1).uImage | pad-to 15616k
++  IMAGE/factory.bin := $$(IMAGE/recovery.bin) | dlink-sge-image | \
++	dlink-sge-signature COVR-P2500
++endef
++TARGET_DEVICES += dlink_covr-p2500-a1
++
+ define Device/dlink_dap-13xx
+   SOC := qca9533
+   DEVICE_VENDOR := D-Link
+-- 
+2.35.3
+

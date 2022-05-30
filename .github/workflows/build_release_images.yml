@@ -1,0 +1,31 @@
+name: Build-Release-Images
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'snapshot*'
+  workflow_dispatch: {}
+jobs:
+  build-release-images:
+    name: Build and Release Firmware Images
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build firmware images
+        run: 'make images CURL_OPTS="-s"'
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: |
+            Automated release. Please see the project README.md for more information.
+
+            [Build logs.](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          prerelease: True
+          files: |
+            openwrt-imagebuilder-*/bin/targets/*/*/openwrt-*.bin
+            openwrt-imagebuilder-*/bin/targets/*/*/openwrt-*.manifest
+            openwrt-imagebuilder-*/bin/targets/*/*/sha256sums
+            openwrt-imagebuilder-*/bin/targets/*/*/profiles.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
