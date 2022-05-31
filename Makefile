@@ -7,18 +7,16 @@ VERSION := 21.02.3
 GCC_VERSION := 8.4.0_musl
 BOARD := ath79
 SUBTARGET := generic
-SOC := qca9563
 ARCH := mips_24kc
 BUILDER := openwrt-imagebuilder-$(VERSION)-$(BOARD)-$(SUBTARGET).Linux-x86_64
 SDK := openwrt-sdk-$(VERSION)-$(BOARD)-$(SUBTARGET)_gcc-$(GCC_VERSION).Linux-x86_64
-PROFILE := dlink_covr-p2500-a1
-DEVICE_DTS := $(SOC)_$(PROFILE)
-PACKAGES := luci
+PROFILES := dlink_covr-p2500-a1
+PACKAGES := luci squashfs-tools-unsquashfs
 EXTRA_IMAGE_NAME := custom
 
 TOPDIR := $(CURDIR)/$(BUILDER)
 SDKDIR := $(CURDIR)/$(SDK)
-KDIR := $(TOPDIR)/build_dir/target-mips_24kc_musl/linux-$(BOARD)_$(SUBTARGET)
+KDIR := $(TOPDIR)/build_dir/target-$(ARCH)_musl/linux-$(BOARD)_$(SUBTARGET)
 PATH := $(TOPDIR)/staging_dir/host/bin:$(SDKDIR)/staging_dir/toolchain-$(ARCH)_gcc-$(GCC_VERSION)/bin:$(PATH)
 LINUX_VERSION = $(shell sed -n -e '/Linux-Version: / {s/Linux-Version: //p;q}' $(BUILDER)/.targetinfo)
 
@@ -65,33 +63,41 @@ linux-include: $(BUILDER)
 	curl $(ALL_CURL_OPTS) "https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/include/dt-bindings/input/input.h?h=v$(LINUX_VERSION)" -o linux-include.tmp/dt-bindings/input/input.h
 	curl $(ALL_CURL_OPTS) "https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/include/uapi/linux/input-event-codes.h?h=v$(LINUX_VERSION)" -o linux-include.tmp/dt-bindings/input/linux-event-codes.h
 	curl $(ALL_CURL_OPTS) "https://github.com/openwrt/openwrt/raw/v$(VERSION)/target/linux/generic/files/include/dt-bindings/mtd/partitions/uimage.h" -o linux-include.tmp/dt-bindings/mtd/partitions/uimage.h
+	rm -rf linux-include
 	mv -T linux-include.tmp linux-include
 
+$(BUILDER)/packages/squashfs-tools-unsquashfs.ipk: $(BUILDER) $(SDK)
+	cd $(SDK) \
+		&& ./scripts/feeds update -a \
+		&& ./scripts/feeds install squashfs-tools \
+		&& make defconfig \
+		&& sed -i 's/^.*CONFIG_SQUASHFS_TOOLS_XZ_SUPPORT.*$$/CONFIG_SQUASHFS_TOOLS_XZ_SUPPORT=y/' .config \
+		&& sed -i 's/^PKG_RELEASE:=.*$$/PKG_RELEASE:=$$(AUTORELEASE)+xz/' 'feeds/packages/utils/squashfs-tools/Makefile' \
+		&& make package/squashfs-tools/compile
+	cp $(SDK)/bin/packages/$(ARCH)/packages/squashfs-tools-unsquashfs*.ipk $(BUILDER)/packages/squashfs-tools-unsquashfs.ipk
 
-$(KDIR)/$(PROFILE)-kernel.bin: $(BUILDER) $(SDK) linux-include
+kernel: $(BUILDER) $(SDK) linux-include
 	# Build this device's DTB and firmware kernel image. Uses the official kernel build as a base.
 	cp -Trf linux-include $(KDIR)/linux-$(LINUX_VERSION)/include
-	cd $(BUILDER) && env PATH=$(PATH) make --trace -C target/linux/$(BOARD)/image $(KDIR)/$(PROFILE)-kernel.bin \
-		TOPDIR="$(TOPDIR)" \
-		INCLUDE_DIR="$(TOPDIR)/include" \
-		TARGET_BUILD=1 \
-		BOARD="$(BOARD)" \
-		SUBTARGET="$(SUBTARGET)" \
-		PROFILE="$(PROFILE)" \
-		DEVICE_DTS="$(DEVICE_DTS)" \
-		LOADER_TYPE="bin" \
-		LOADER_FLASH_OFFS="0x050000" \
-		LOADER_KERNEL_MAGIC="0x68737173" \
-		COMPILE="loader-$(PROFILE).bin loader-$(PROFILE).uImage" \
-		COMPILE/loader-$(PROFILE).bin=loader-okli-compile \
-		COMPILE/loader-$(PROFILE).uImage="append-loader-okli $(PROFILE) | pad-to 64k | lzma | uImage lzma" \
-		KERNEL="kernel-bin | append-dtb | lzma | uImage lzma -M 0x68737173" \
-		IMAGE_SIZE="14528k"
 
+	cd $(BUILDER) && $(foreach PROFILE,$(PROFILES),\
+		env PATH=$(PATH) make --trace -C $(TOPDIR)/target/linux/$(BOARD)/image \
+			$(KDIR)/$(PROFILE)-kernel.bin \
+			TOPDIR="$(TOPDIR)" \
+			INCLUDE_DIR="$(TOPDIR)/include" \
+			TARGET_BUILD=1 \
+			BOARD="$(BOARD)" \
+			SUBTARGET="$(SUBTARGET)" \
+			PROFILE="$(PROFILE)" \
+			TARGET_DEVICES="$(PROFILE)" \
+	;)
 
-images: $(BUILDER) $(KDIR)/$(PROFILE)-kernel.bin
+images: $(BUILDER) kernel $(BUILDER)/packages/squashfs-tools-unsquashfs.ipk
+
 	# Use ImageBuilder as normal
-	cd $(BUILDER) && make image PROFILE="$(PROFILE)" EXTRA_IMAGE_NAME="$(EXTRA_IMAGE_NAME)" PACKAGES="$(PACKAGES)" FILES="$(TOPDIR)/target/linux/$(BOARD)/$(SUBTARGET)/base-files/" FORCE=1
+	cd $(BUILDER) && $(foreach PROFILE,$(PROFILES),\
+		make image PROFILE="$(PROFILE)" EXTRA_IMAGE_NAME="$(EXTRA_IMAGE_NAME)" PACKAGES="$(PACKAGES)" FILES="$(TOPDIR)/target/linux/$(BOARD)/$(SUBTARGET)/base-files/"\
+	;)
 	cat $(BUILDER)/bin/targets/$(BOARD)/$(SUBTARGET)/sha256sums
 	ls -hs $(BUILDER)/bin/targets/$(BOARD)/$(SUBTARGET)/openwrt-*.bin
 
