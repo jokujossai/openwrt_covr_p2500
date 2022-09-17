@@ -19,17 +19,20 @@ boot, allowing to access the file system of the running device).
 Signed-off-by: Sebastian Schaper <openwrt@sebastianschaper.net>
 ---
  include/image-commands.mk                  |   5 +
+ scripts/dlink-sge-signature.py             |  35 +++++
+ target/linux/ath79/image/generic.mk        |   4 +++
  tools/firmware-utils/src/dlink-sge-image.c | 351 +++++++++++++++++++++
  tools/firmware-utils/src/dlink-sge-image.h |  86 +++++
- 3 files changed, 442 insertions(+)
+ 5 files changed, 481 insertions(+)
+ create mode 100755 scripts/dlink-sge-signature.py
  create mode 100644 tools/firmware-utils/src/dlink-sge-image.c
  create mode 100644 tools/firmware-utils/src/dlink-sge-image.h
 
 diff --git a/include/image-commands.mk b/include/image-commands.mk
 --- a/include/image-commands.mk
 +++ b/include/image-commands.mk
-@@ -159,6 +159,11 @@ define Build/check-size
- 	}
+@@ -218,6 +218,11 @@ define Build/copy-file
+ 	cat "$(1)" > "$@"
  endef
  
 +define Build/dlink-sge-image
@@ -40,6 +43,60 @@ diff --git a/include/image-commands.mk b/include/image-commands.mk
  define Build/elecom-product-header
  	$(eval product=$(word 1,$(1)))
  	$(eval fw=$(if $(word 2,$(1)),$(word 2,$(1)),$@))
+diff --git a/scripts/dlink-sge-signature.py b/scripts/dlink-sge-signature.py
+new file mode 100755
+--- /dev/null
++++ b/scripts/dlink-sge-signature.py
+@@ -0,0 +1,35 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++#
++# Copyright (C) 2021 Sebastian Schaper <openwrt@sebastianschaper.net>
++#
++# append model string and gzip-based signature used by
++# certain D-Link devices manufactured by SGE / T&W.
++#
++# e.g. COVR-P2500 requires this to be appended to the
++# encrypted factory image, while for COVR-C1200 the
++# signature needs to be appended to the unencrypted payload
++#
++
++import gzip, hashlib, sys
++
++if len(sys.argv) != 3:
++    exit(f"usage: {sys.argv[0]} input.bin model_name")
++
++input_file = sys.argv[1]
++model_name = sys.argv[2]
++
++with open(input_file, "rb+") as fd:
++    input_bytes = fd.read()
++
++    gzipped = gzip.compress(input_bytes)[-8:-4]
++    m = hashlib.md5()
++    m.update(input_bytes)
++
++    fd.write(m.hexdigest().encode())
++    fd.write(f"\n{model_name}\n".encode())
++    fd.write(gzipped[::-1].hex().encode()) # change byte order
++
++    exit()
++
++exit(1)
+diff --git a/target/linux/ath79/image/generic.mk b/target/linux/ath79/image/generic.mk
+--- a/target/linux/ath79/image/generic.mk
++++ b/target/linux/ath79/image/generic.mk
+@@ -48,6 +48,10 @@ define Build/cybertan-trx
+ 	-rm $@-empty.bin
+ endef
+ 
++define Build/dlink-sge-signature
++	$(TOPDIR)/scripts/dlink-sge-signature.py $@ $(1)
++endef
++
+ define Build/edimax-headers
+ 	$(eval edimax_magic=$(word 1,$(1)))
+ 	$(eval edimax_model=$(word 2,$(1)))
 diff --git a/tools/firmware-utils/src/dlink-sge-image.c b/tools/firmware-utils/src/dlink-sge-image.c
 new file mode 100644
 --- /dev/null

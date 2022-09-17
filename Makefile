@@ -3,8 +3,8 @@
 
 ALL_CURL_OPTS := $(CURL_OPTS) -L --fail --create-dirs -s
 
-VERSION := 21.02.3
-GCC_VERSION := 8.4.0_musl
+VERSION := 22.03.0
+GCC_VERSION := 11.2.0_musl
 BOARD := ath79
 SUBTARGET := generic
 ARCH := mips_24kc
@@ -29,8 +29,8 @@ $(BUILDER).tar.xz:
 firmware-utils-master.tar.gz:
 	curl $(ALL_CURL_OPTS) "https://git.openwrt.org/?p=project/firmware-utils.git;a=snapshot;h=refs/heads/master;sf=tgz" -o firmware-utils-master.tar.gz
 
-$(BUILDER): $(BUILDER).tar.xz firmware-utils-master.tar.gz
-	rm -rf $(BUILDER).tmp
+$(BUILDER): $(BUILDER).tar.xz firmware-utils-master.tar.gz patches/*.patch
+	rm -rf $(BUILDER) $(BUILDER).tmp
 	mkdir $(BUILDER).tmp
 	tar -xf $(BUILDER).tar.xz -C $(BUILDER).tmp --strip-components=1
 
