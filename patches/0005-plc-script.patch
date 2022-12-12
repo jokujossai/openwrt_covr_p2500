@@ -2,7 +2,7 @@ diff --git a/target/linux/ath79/generic/base-files/etc/init.d/plc b/target/linux
 new file mode 100755
 --- /dev/null
 +++ b/target/linux/ath79/generic/base-files/etc/init.d/plc
-@@ -0,0 +1,329 @@
+@@ -0,0 +1,335 @@
 +#!/bin/sh /etc/rc.common
 +
 +USE_PROCD=1
@@ -11,9 +11,7 @@ new file mode 100755
 +STOP=80
 +
 +EXTRA_COMMANDS="setup"
-+EXTRA_HELP="	setup Download firmware files"
-+
-+. $IPKG_INSTROOT/lib/functions/system.sh
++EXTRA_HELP="	setup PLC configuration setup helper"
 +
 +mtd_get_key() {
 +	local mtdname="$1"
@@ -34,13 +32,13 @@ new file mode 100755
 +
 +board=$(board_name)
 +
-+if [ ! -f $IPKG_INSTROOT/etc/config/plc ] || [ "$(uci show plc 2>/dev/null)" = "" ]; then
-+	touch $IPKG_INSTROOT/etc/config/plc
-+	uci set plc.config=config
-+	uci commit plc
-+fi
-+
 +start_service() {
++	if [ ! -f /etc/config/plc ] || [ "$(uci show plc 2>/dev/null)" = "" ]; then
++		touch /etc/config/plc
++		uci set plc.config=config
++		uci commit plc
++	fi
++
 +	local NvmPath
 +	local PibPath
 +	local Mac
@@ -156,23 +154,25 @@ new file mode 100755
 +		sleep 1s
 +	done
 +
-+	procd_open_instance plchost
-+
-+	procd_set_param command /usr/bin/plchost -i "$device" -N "$NvmPath" -P "$pibpath_tmp"
++	procd_open_instance
++	if [ -z "$Network" ]; then
++		procd_set_param command /usr/bin/plchost -i "$device" -N "$NvmPath" -P "$pibpath_tmp"
++	else
++		[ ! -e /dev/fd ] && ln -s /proc/self/fd /dev/fd
++		procd_set_param command sh -c '/usr/bin/plchost -i '"$device"' -N '"$NvmPath"' -P '"$pibpath_tmp"' 2> >(\
++			while read line; do \
++				echo "$line" >&2; \
++				if [ $(expr match "$line" ".*'$device'.*is running.*") -gt 0 ]; then \
++					echo "Adding '$device' to br-'$Network'"; \
++					brctl addif "br-'$Network'" "'$device'"; \
++				fi; \
++			done)'
++	fi
 +	procd_set_param file /etc/config/plc
 +	procd_set_param stdout 1
 +	procd_set_param stderr 1
 +	procd_set_param netdev "$device"
 +	procd_close_instance
-+
-+	if [ ! -z "$Network" ]; then
-+		procd_open_instance bridge_control
-+		procd_set_param command /bin/sh -c 'logread -l 0 -f | (while read line; do if [ $(expr match "$line" ".*'$device'.*is running.*") -gt 0 ]; then echo "Adding '$device' to br-'$Network'"; brctl addif br-'$Network' '$device'; fi; done)'
-+		procd_set_param stdout 1
-+		procd_set_param stderr 1
-+		procd_set_param netdev "br-$Network"
-+		procd_close_instance
-+	fi
 +}
 +
 +service_triggers() {
@@ -221,6 +221,12 @@ new file mode 100755
 +}
 +
 +setup() {
++	if [ ! -f /etc/config/plc ] || [ "$(uci show plc 2>/dev/null)" = "" ]; then
++		touch /etc/config/plc
++		uci set plc.config=config
++		uci commit plc
++	fi
++
 +	echo -n "Download original firmware and extract files from /lib/plc to /etc/plc [y|n] "
 +	read i
 +	if [ "$i" = "y" ] || [ "$i" = "Y" ]; then
@@ -332,3 +338,9 @@ new file mode 100755
 +		uci commit plc
 +	fi
 +}
+diff --git a/target/linux/ath79/generic/base-files/lib/upgrade/keep.d/plc b/target/linux/ath79/generic/base-files/lib/upgrade/keep.d/plc
+new file mode 100755
+--- /dev/null
++++ b/target/linux/ath79/generic/base-files/lib/upgrade/keep.d/plc
+@@ -0,0 +1 @@
++/etc/plc
