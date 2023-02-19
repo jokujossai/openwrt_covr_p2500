@@ -3,7 +3,7 @@
 
 ALL_CURL_OPTS := $(CURL_OPTS) -L --fail --create-dirs -s
 
-VERSION := 22.03.2
+VERSION := 22.03.3
 GCC_VERSION := 11.2.0_musl
 BOARD := ath79
 SUBTARGET := generic
@@ -39,7 +39,7 @@ $(BUILDER): $(BUILDER).tar.xz firmware-utils-master.tar.gz patches/*.patch
 	tar -xf firmware-utils-master.tar.gz -C $(BUILDER).tmp/tools/firmware-utils --strip-components=1
 
 	# Apply all patches
-	$(foreach file, $(sort $(wildcard patches/*.patch)), patch -d $(BUILDER).tmp -p1 < $(file);)
+	$(foreach file, $(sort $(wildcard patches/*.patch)), echo Applying patch $(file); patch -d $(BUILDER).tmp -p1 < $(file);)
 	cd $(BUILDER).tmp/tools/firmware-utils \
 		&& cmake . \
 		&& make dlink-sge-image
