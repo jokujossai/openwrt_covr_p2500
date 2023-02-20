@@ -35,7 +35,28 @@ Release is not compatible with old loader. Force flash with sysupgrade-openwrt18
 sysupgrade -n -F sysupgrade-openwrt1806.bin
 ```
 
-### u-boot serial recovery
+### Failsafe mode (with serial)
+
+1. Boot device with serial attached
+2. Wait until "Press the [f] key and hit [enter] to enter failsafe mode" and enter failsafe mode.
+3. Verify that `cat /proc/mtd` contains firmware partition with size 00fa0000. With OpenWRT installed partition structure is different and *squashfs-recovery.bin should not be flashed to firmware
+4. Get *squashfs-recovery.bin to /tmp directory
+5. Flash with `mtd -r write /tmp/*squashfs-recovery.bin firmware`
+
+### Failsafe mode (without serial)
+
+Failsafe mode can be enable by pressing WPS button or reset button at the right time during startup. Correct time is approximately 10 seconds after the device is plugged on, but it is simpler to continuoysly click WPS button during startup
+
+1. Power on the device
+2. Continuously click WPS button for 20 seconds
+3. Connect ethernet cable to the device and set local IP address to 192.168.1.100/24
+4. Access device with `telnet 192.168.1.1`
+5. Verify that `cat /proc/mtd` contains firmware partition with size 00fa0000. With OpenWRT installed partition structure is different and *squashfs-recovery.bin should not be flashed to firmware
+5. Get *squashfs-recovery.bin to /tmp directory
+6. Flash with `mtd -r write /tmp/*squashfs-recovery.bin firmware`
+
+
+### u-boot recovery (serial)
 Setup tftpd server on 192.168.0.100 with recovery.bin named as 3200A8C0.img.
 Start device with serial console attached and access u-boot console by pressing any key when promted.
 Install image with commands:
@@ -107,19 +128,19 @@ eth0.3 XX:XX:XX:XX:XX:X Found 1 Network(s)
 
 source address = XX:XX:XX:XX:XX:XX
 
-	network->NID = ZZ:ZZ:ZZ:ZZ:ZZ:ZZ:ZZ
-	network->SNID = 15
-	network->TEI = 1
-	network->ROLE = 0x02 (CCO)
-	network->CCO_DA = XX:XX:XX:XX:XX:XX
-	network->CCO_TEI = 1
-	network->STATIONS = 1
+    network->NID = ZZ:ZZ:ZZ:ZZ:ZZ:ZZ:ZZ
+    network->SNID = 15
+    network->TEI = 1
+    network->ROLE = 0x02 (CCO)
+    network->CCO_DA = XX:XX:XX:XX:XX:XX
+    network->CCO_TEI = 1
+    network->STATIONS = 1
 
-		station->MAC = YY:YY:YY:YY:YY:YY
-		station->TEI = 2
-		station->BDA = F4:B5:20:44:BC:DE
-		station->AvgPHYDR_TX = 009 mbps Primary
-		station->AvgPHYDR_RX = 009 mbps Primary
+        station->MAC = YY:YY:YY:YY:YY:YY
+        station->TEI = 2
+        station->BDA = F4:B5:20:44:BC:DE
+        station->AvgPHYDR_TX = 009 mbps Primary
+        station->AvgPHYDR_RX = 009 mbps Primary
 
 ```
 
