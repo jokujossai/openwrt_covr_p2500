@@ -17,47 +17,47 @@ Build script based on [jwmullay's openwrt_wpa8630p_v2_fullmem](https://github.co
 
 Clone repository and run `make`
 
-## Installing
+## Installation methods
 
 ### OEM Web UI
-Login to http://covr.local/ (or with IP address). Navigate to Management -> Upgrade and upload factory.bin.
+Login to http://covr.local/ (or with IP address). Navigate to Management -> Upgrade and upload *squashfs-factory.bin.
 
 OEM configuration is not compatible with OpenWRT so the device can't be accessed before reset. Wait long enough to make sure upgrade is finished and reset device with reset button. Use ethernet port 1 or 2 (in the middle of the device) to access LUCI Web UI on http://192.168.1.1/.
 
-### OEM Recovery UI (Not working)
-Hold reset while powering device and access the Recovery UI on http://192.168.0.50/. Upload recovery.bin
+### OEM Recovery UI (Probably not working)
+Hold reset while powering device and access the Recovery UI on http://192.168.0.50/. Upload *squashfs-recovery.bin
 
 ### From OpenWRT 18.06-SNAPSHOT r7704-9ee8c8daf4 (http://www.netadair.de/openwrt/)
-!!! DO NOT FORCE FLASH sysupgrade.bin
+!!! DO NOT FORCE FLASH *squashfs-sysupgrade.bin
 
 Release is not compatible with old loader. Force flash with sysupgrade-openwrt1806.bin that contains also new loader.
 ```
-sysupgrade -n -F sysupgrade-openwrt1806.bin
+sysupgrade -n -F *squashfs-sysupgrade-openwrt1806.bin
 ```
 
 ### Failsafe mode (with serial)
 
 1. Boot device with serial attached
 2. Wait until "Press the [f] key and hit [enter] to enter failsafe mode" and enter failsafe mode.
-3. Verify that `cat /proc/mtd` contains firmware partition with size 00fa0000. With OpenWRT installed partition structure is different and *squashfs-recovery.bin should not be flashed to firmware
+3. Verify that `cat /proc/mtd` contains firmware partition with size 00fa0000. With OpenWRT installed partition structure is different and flashings *squashfs-recovery.bin to firmware partition might brick the device. (Use *squashfs-sysupgrade.bin if size of firmware partition is 00f90000)
 4. Get *squashfs-recovery.bin to /tmp directory
 5. Flash with `mtd -r write /tmp/*squashfs-recovery.bin firmware`
 
 ### Failsafe mode (without serial)
 
-Failsafe mode can be enable by pressing WPS button or reset button at the right time during startup. Correct time is approximately 10 seconds after the device is plugged on, but it is simpler to continuoysly click WPS button during startup
+Failsafe mode can be activated by pressing WPS button or reset button at the right time during startup. Correct time is approximately 10 seconds after the device is plugged on, but it is easier to continuoysly click WPS button during startup.
 
 1. Power on the device
 2. Continuously click WPS button for 20 seconds
 3. Connect ethernet cable to the device and set local IP address to 192.168.1.100/24
 4. Access device with `telnet 192.168.1.1`
-5. Verify that `cat /proc/mtd` contains firmware partition with size 00fa0000. With OpenWRT installed partition structure is different and *squashfs-recovery.bin should not be flashed to firmware
-5. Get *squashfs-recovery.bin to /tmp directory
-6. Flash with `mtd -r write /tmp/*squashfs-recovery.bin firmware`
+5. Verify that `cat /proc/mtd` contains firmware partition with size 00fa0000. With OpenWRT installed partition structure is different and flashings *squashfs-recovery.bin to firmware partition might brick the device. (Use *squashfs-sysupgrade.bin if size of firmware partition is 00f90000)
+6. Get *squashfs-recovery.bin to /tmp directory
+7. Flash with `mtd -r write /tmp/*squashfs-recovery.bin firmware`
 
 
 ### u-boot recovery (serial)
-Setup tftpd server on 192.168.0.100 with recovery.bin named as 3200A8C0.img.
+Setup tftpd server on 192.168.0.100 with *squashfs-recovery.bin named as 3200A8C0.img.
 Start device with serial console attached and access u-boot console by pressing any key when promted.
 Install image with commands:
 ```
@@ -73,13 +73,7 @@ SSH to device and run `/etc/init.d/plc setup`. Make selections and start PLC wit
 
 ### Setup example
 
-1. (optional) Download QCA75XX-2.10.0.0032_m
-odules_5-6_stripped.nvm
-```
-root@covrp2500_1:~# mkdir /etc/plc
-root@covrp2500_1:~# cd /etc/plc/
-root@covrp2500_1:/etc/plc# wget ???/QCA75XX-2.10.0.0032_modules_5-6_stripped.nvm
-```
+1. (optional) Download QCA75XX-2.10.0.0032_modules_5-6_stripped.nvm to /etc/plc directory. This version is reported to be more stable than version on stock firmware.
 2. Run PLC setup helper
 ```
 root@covrp2500_1:/etc/plc# /etc/init.d/plc setup
@@ -119,7 +113,7 @@ root@covrp2500_1:/etc/plc# /etc/init.d/plc start
 
 4. Check PLC connection status after another device connected
 
-NOTE! plctool does not work with bridge
+NOTE! plctool does not work when eth0.3 is added to br-lan bridge
 
 ```
 root@covrp2500_1:/etc/plc# plctool -i eth0.3 -m
