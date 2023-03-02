@@ -26,9 +26,9 @@ OEM configuration is not compatible with OpenWRT so the device can't be accessed
 
 ### OEM Recovery UI
 
-OEM Recovery UI does not work with modern operating systems. Recovery UI works without problems at least on Windows XP.
+OEM Recovery UI does not work with modern operating systems without manually waiting TCP ACK after every packetd. Recovery UI works without problems at least on Windows XP.
 
-dlink_recovery_upload.py script allows uploading firmware but works only on linux. Implementation waits until TCP_INFO's tcpi_unacked is zero after every packet.
+dlink_recovery_upload.py script allows uploading firmware but the script works only on linux and windows (Windows 10, version 1703 or newer). Linux implementation waits until TCP_INFO's tcpi_unacked is zero after every packet. Windows implementation waits until TCP_INFO_v0's BytesInFlight is zero after every packet.
 
 1. Power down the device
 2. Press and hold the reset button on the device and re-plug the power without releasing the reset button
