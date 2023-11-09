@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 #
 #   D-Link COVR-P2500 flash utility
+#
+#   Upload firmware to the device with waiting for ACK after each TCP packet.
 #
 #   Copyright (C) 2023 Daniel Linjama <daniel@dev.linjama.com>
 #
@@ -27,9 +30,7 @@ import ctypes
 import ctypes.wintypes
 import os
 import random
-import re
 import socket
-import struct
 import sys
 import time
 
@@ -38,42 +39,93 @@ ACK_TIMEOUT = 10
 
 
 if sys.platform in ("linux", "linux2"):
-    TCP_INFO_FMT = None
-    TCP_INFO_ITEMS = None
+    class TCP_INFO(ctypes.Structure):
+        """
+        tcp_info structure (https://sourceware.org/git?p=glibc.git;a=blob_plain;f=sysdeps/gnu/netinet/tcp.h;hb=HEAD)
 
-    # Parse tcp_info structure from /usr/include/netinet/tcp.h
-    assert os.path.isfile("/usr/include/netinet/tcp.h"), "File not found: /usr/include/netinet/tcp.h"
-    with open("/usr/include/netinet/tcp.h", "r") as fh:
-        tcp_header = fh.read()
-    # Remove comments and replace all whitespaces with one space
-    tcp_header = re.sub(
-        r"/\*.+?\*/",
-        "",
-        re.sub(r"\s+", " ", tcp_header)
-    )
-    # Find struct tcp_info
-    m = re.search(r"struct tcp_info {(.+?)}", tcp_header)
-    if m is not None:
-        # Dictionary from strcuture items
-        m.group(1).split(";")
-        struct_items = dict(
-            (item.strip().split(" ")[1], item.strip().split(" ")[0])
-            for item in m.group(1).split(";")
-            if item.strip() != ''
-        )
-        # Create format string for struct.unpack
-        fmt = ""
-        for key, value in struct_items.items():
-            assert value in ("uint8_t", "uint32_t")
-            if value == "uint8_t":
-                fmt += "B"
-            elif value == "uint32_t":
-                fmt += "I"
-        TCP_INFO_FMT = fmt
-        TCP_INFO_ITEMS = struct_items
+        struct tcp_info
+        {
+            uint8_t     tcpi_state;
+            uint8_t     tcpi_ca_state;
+            uint8_t     tcpi_retransmits;
+            uint8_t     tcpi_probes;
+            uint8_t     tcpi_backoff;
+            uint8_t     tcpi_options;
+            uint8_t     tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
 
-    # Assert tcp_info structure successfully parsed
-    assert TCP_INFO_FMT is not None and TCP_INFO_ITEMS is not None, "Failed to parse tcp_info structure"
+            uint32_t    tcpi_rto;
+            uint32_t    tcpi_ato;
+            uint32_t    tcpi_snd_mss;
+            uint32_t    tcpi_rcv_mss;
+
+            uint32_t    tcpi_unacked;
+            uint32_t    tcpi_sacked;
+            uint32_t    tcpi_lost;
+            uint32_t    tcpi_retrans;
+            uint32_t    tcpi_fackets;
+
+            /* Times. */
+            uint32_t    tcpi_last_data_sent;
+            uint32_t    tcpi_last_ack_sent;	/* Not remembered, sorry.  */
+            uint32_t    tcpi_last_data_recv;
+            uint32_t    tcpi_last_ack_recv;
+
+            /* Metrics. */
+            uint32_t    tcpi_pmtu;
+            uint32_t    tcpi_rcv_ssthresh;
+            uint32_t    tcpi_rtt;
+            uint32_t    tcpi_rttvar;
+            uint32_t    tcpi_snd_ssthresh;
+            uint32_t    tcpi_snd_cwnd;
+            uint32_t    tcpi_advmss;
+            uint32_t    tcpi_reordering;
+
+            uint32_t    tcpi_rcv_rtt;
+            uint32_t    tcpi_rcv_space;
+
+            uint32_t    tcpi_total_retrans;
+        };
+        """
+        _fields_ = [
+            ("tcpi_state", ctypes.c_uint8),
+            ("tcpi_ca_state", ctypes.c_uint8),
+            ("tcpi_retransmits", ctypes.c_uint8),
+            ("tcpi_probes", ctypes.c_uint8),
+            ("tcpi_backoff", ctypes.c_uint8),
+            ("tcpi_options", ctypes.c_uint8),
+            ("tcpi_snd_wscale", ctypes.c_uint8, 4),
+            ("tcpi_rcv_wscale", ctypes.c_uint8, 4),
+
+            ("tcpi_rto", ctypes.c_uint32),
+            ("tcpi_ato", ctypes.c_uint32),
+            ("tcpi_snd_mss", ctypes.c_uint32),
+            ("tcpi_rcv_mss", ctypes.c_uint32),
+
+            ("tcpi_unacked", ctypes.c_uint32),
+            ("tcpi_sacked", ctypes.c_uint32),
+            ("tcpi_lost", ctypes.c_uint32),
+            ("tcpi_retrans", ctypes.c_uint32),
+            ("tcpi_fackets", ctypes.c_uint32),
+
+            ("tcpi_last_data_sent", ctypes.c_uint32),
+            ("tcpi_last_ack_sent", ctypes.c_uint32),
+            ("tcpi_last_data_recv", ctypes.c_uint32),
+            ("tcpi_last_ack_recv", ctypes.c_uint32),
+
+            ("tcpi_pmtu", ctypes.c_uint32),
+            ("tcpi_rcv_ssthresh", ctypes.c_uint32),
+            ("tcpi_rtt", ctypes.c_uint32),
+            ("tcpi_rttvar", ctypes.c_uint32),
+            ("tcpi_snd_ssthresh", ctypes.c_uint32),
+            ("tcpi_snd_cwnd", ctypes.c_uint32),
+            ("tcpi_advmss", ctypes.c_uint32),
+            ("tcpi_reordering", ctypes.c_uint32),
+
+            ("tcpi_rcv_rtt", ctypes.c_uint32),
+            ("tcpi_rcv_space", ctypes.c_uint32),
+
+            ("tcpi_total_retrans", ctypes.c_uint32),
+        ]
 
     def wait_ack(s: socket.socket):
         """
@@ -92,21 +144,15 @@ if sys.platform in ("linux", "linux2"):
                 raise RuntimeError("ACK timeout")
 
             # Fetch tcp_info
-            tcp_info_values = struct.unpack(
-                TCP_INFO_FMT,
+            tcp_info = TCP_INFO.from_buffer_copy(
                 s.getsockopt(
                     socket.IPPROTO_TCP,
                     socket.TCP_INFO,
-                    struct.calcsize(TCP_INFO_FMT)
+                    ctypes.sizeof(TCP_INFO)
                 )
             )
-            # Create dictionary with TCP_INFO_ITEMS.keys() and tcp_info_values
-            tcp_info = dict(
-                (key, tcp_info_values[i])
-                for i, key in enumerate(TCP_INFO_ITEMS.keys())
-            )
 
-            unacked = tcp_info["tcpi_unacked"]
+            unacked = tcp_info.tcpi_unacked
 elif sys.platform == "win32":
     class TCP_INFO_v0(ctypes.Structure):
         """
@@ -219,6 +265,36 @@ elif sys.platform == "win32":
             assert res == 0
 
             unacked = tcpinfo.BytesInFlight
+elif sys.platform == "darwin":
+    """
+    SO_NWRITE returns the amount of data in the output buffer not yet sent by the protocol.
+
+    /Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/include/sys/socket.h
+    #define SO_NWRITE       0x1024          /* APPLE: Get number of bytes currently in send socket buffer */
+    """
+    SO_NWRITE = 0x1024
+
+    def wait_ack(s: socket.socket):
+        """
+        MacOS compatible wait_ack implementation.
+
+        Waits until SO_NWRITE is zero
+
+        :param socket.socket s: The socket to check for unacked TCP packets
+        :raises RuntimeError: if ACK_TIMEOUT exceeded
+        """
+        timeout = time.time() + ACK_TIMEOUT
+        unacked = 1
+        while unacked > 0:
+            # Check timeout
+            if time.time() > timeout:
+                raise RuntimeError("ACK timeout")
+
+            # Fecth SO_NWRITE
+            unacked = s.getsockopt(
+                socket.SOL_SOCKET,
+                SO_NWRITE
+            )
 else:
     raise RuntimeError("Unsupported sys.platform")
 
@@ -327,9 +403,9 @@ if __name__ == "__main__":
         epilog="(C) 2023 Daniel Linjama"
     )
     parser.add_argument("firmware", type=str, help="Firmware file to upload")
-    parser.add_argument("--host", type=str, default="192.168.0.50", help="Router IP address")
-    parser.add_argument("--port", type=int, default=80, help="Router HTTP port")
-    parser.add_argument("--path", type=str, default="/upgrade.cgi", help="HTTP path for firmware upgrade")
+    parser.add_argument("--host", type=str, default="192.168.0.50", help="Router IP address (default: 192.168.0.50)")
+    parser.add_argument("--port", type=int, default=80, help="Router HTTP port (default: 80)")
+    parser.add_argument("--path", type=str, default="/upgrade.cgi", help="HTTP path for firmware upgrade (default: /upgrade.cgi)")
 
     args = parser.parse_args()
 
