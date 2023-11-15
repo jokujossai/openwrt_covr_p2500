@@ -1,8 +1,8 @@
 diff --git a/target/linux/ath79/image/generic.mk b/target/linux/ath79/image/generic.mk
 --- a/target/linux/ath79/image/generic.mk
 +++ b/target/linux/ath79/image/generic.mk
-@@ -940,12 +940,13 @@
- 	lzma | uImage lzma
+@@ -943,12 +943,13 @@
+   LOADER_KERNEL_MAGIC := 0x68737173
    KERNEL := kernel-bin | append-dtb | lzma | uImage lzma -M 0x68737173
    IMAGE_SIZE := 14528k
 -  IMAGES += factory.bin recovery.bin

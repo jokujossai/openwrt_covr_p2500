@@ -3,7 +3,7 @@
 
 ALL_CURL_OPTS := $(CURL_OPTS) -L --fail --create-dirs -s
 
-VERSION := 23.05.0
+VERSION := 23.05.1
 GCC_VERSION := 12.3.0_musl
 BOARD := ath79
 SUBTARGET := generic
@@ -90,16 +90,6 @@ linux-include: $(BUILDER)
 	rm -rf linux-include
 	mv -T linux-include.tmp linux-include
 
-$(BUILDER)/packages/squashfs-tools-unsquashfs.ipk: $(BUILDER) $(SDK)
-	cd $(SDK) \
-		&& ./scripts/feeds update -a \
-		&& ./scripts/feeds install squashfs-tools \
-		&& make defconfig \
-		&& sed -i 's/^.*CONFIG_SQUASHFS_TOOLS_XZ_SUPPORT.*$$/CONFIG_SQUASHFS_TOOLS_XZ_SUPPORT=y/' .config \
-		&& sed -i 's/^PKG_RELEASE:=.*$$/PKG_RELEASE:=$$(AUTORELEASE)+xz/' 'feeds/packages/utils/squashfs-tools/Makefile' \
-		&& make package/squashfs-tools/compile
-	cp $(SDK)/bin/packages/$(ARCH)/packages/squashfs-tools-unsquashfs*.ipk $(BUILDER)/packages/squashfs-tools-unsquashfs.ipk
-
 kernel: $(BUILDER) $(SDK) linux-include
 	# Build this device's DTB and firmware kernel image. Uses the official kernel build as a base.
 	cp -Trf linux-include $(KDIR)/linux-$(LINUX_VERSION)/include
@@ -116,7 +106,7 @@ kernel: $(BUILDER) $(SDK) linux-include
 			TARGET_DEVICES="$(PROFILE)" \
 	;)
 
-images: $(BUILDER) kernel $(BUILDER)/packages/squashfs-tools-unsquashfs.ipk
+images: $(BUILDER) kernel
 
 	# Use ImageBuilder as normal
 	cd $(BUILDER) && $(foreach PROFILE,$(PROFILES),\
