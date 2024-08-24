@@ -9,10 +9,10 @@ on:
 jobs:
   build-release-images:
     name: Build and Release Firmware Images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Build firmware images
         run: 'make images CURL_OPTS="-s"'
       - uses: actions/upload-artifact@v4
@@ -24,7 +24,7 @@ jobs:
           retention-days: 7
       - name: Release
         if: github.event_name == 'push'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body: |
             Automated release. Please see the project README.md for more information.
