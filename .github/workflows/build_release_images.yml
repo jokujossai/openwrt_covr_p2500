@@ -13,6 +13,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          key: downloads-${{ hashFiles('Makefile') }}
+          path: |
+            openwrt-*.tar.xz
+            firmware-utils-master.tar.gz
+            linux-include/**
       - name: Build firmware images
         run: 'make images CURL_OPTS="-s"'
       - uses: actions/upload-artifact@v4
