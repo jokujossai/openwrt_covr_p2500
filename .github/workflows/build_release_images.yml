@@ -23,7 +23,7 @@ jobs:
             openwrt-imagebuilder-*/bin/targets/*/*/openwrt-*.manifest
           retention-days: 7
       - name: Release
-        if: workflow.event_name == 'push'
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v1
         with:
           body: |
