@@ -4,6 +4,7 @@ on:
     tags:
       - 'v*'
       - 'snapshot*'
+  pull_request:
   workflow_dispatch: {}
 jobs:
   build-release-images:
@@ -14,7 +15,15 @@ jobs:
         uses: actions/checkout@v2
       - name: Build firmware images
         run: 'make images CURL_OPTS="-s"'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            openwrt-imagebuilder-*/bin/targets/*/*/openwrt-*.bin
+            openwrt-imagebuilder-*/bin/targets/*/*/openwrt-*.manifest
+          retention-days: 7
       - name: Release
+        if: workflow.event_name == 'push'
         uses: softprops/action-gh-release@v1
         with:
           body: |
