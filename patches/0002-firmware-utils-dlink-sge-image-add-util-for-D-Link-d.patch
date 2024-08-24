@@ -1,25 +1,9 @@
 firmware-utils: dlink-sge-image: add util for D-Link devices by SGE
 
 ---
- include/image-commands.mk                  |   5 +
- target/linux/ath79/image/generic.mk        |  10 +++
- 2 files changed, 9 insertions(+)
+ target/linux/ath79/image/generic.mk        |  11 +++
+ 1 files changed, 11 insertions(+)
 
-diff --git a/include/image-commands.mk b/include/image-commands.mk
---- a/include/image-commands.mk
-+++ b/include/image-commands.mk
-@@ -226,6 +226,11 @@ define Build/copy-file
- 	cat "$(1)" > "$@"
- endef
- 
-+define Build/dlink-sge-image
-+	$(STAGING_DIR_HOST)/bin/dlink-sge-image $(1) $@ $@.enc
-+	mv $@.enc $@
-+endef
-+
- define Build/edimax-header
- 	$(STAGING_DIR_HOST)/bin/mkedimaximg -i $@ -o $@.new $(1)
- 	@mv $@.new $@
 diff --git a/target/linux/ath79/image/generic.mk b/target/linux/ath79/image/generic.mk
 --- a/target/linux/ath79/image/generic.mk
 +++ b/target/linux/ath79/image/generic.mk
