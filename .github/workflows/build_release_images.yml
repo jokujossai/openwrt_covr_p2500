@@ -19,7 +19,6 @@ jobs:
           path: |
             openwrt-*.tar.xz
             firmware-utils-master.tar.gz
-            linux-include/**
       - name: Build firmware images
         run: 'make images CURL_OPTS="-s"'
       - uses: actions/upload-artifact@v4
