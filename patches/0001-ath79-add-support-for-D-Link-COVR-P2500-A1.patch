@@ -225,7 +225,7 @@ index 5855d2a928..d826f2ee39 100644
 diff --git a/target/linux/ath79/generic/base-files/etc/board.d/02_network b/target/linux/ath79/generic/base-files/etc/board.d/02_network
 --- a/target/linux/ath79/generic/base-files/etc/board.d/02_network
 +++ b/target/linux/ath79/generic/base-files/etc/board.d/02_network
-@@ -274,6 +274,10 @@ ath79_setup_interfaces()
+@@ -276,6 +276,10 @@ ath79_setup_interfaces()
  		ucidef_add_switch "switch0" \
  			"0@eth0" "2:wan" "3:lan" "4:lan"
  		;;
@@ -236,7 +236,7 @@ diff --git a/target/linux/ath79/generic/base-files/etc/board.d/02_network b/targ
  	dlink,dap-2695-a1)
  		ucidef_add_switch "switch0" \
  			"0@eth0" "2:lan" "3:wan" "6@eth1"
-@@ -620,6 +624,11 @@ ath79_setup_macs()
+@@ -622,6 +626,11 @@ ath79_setup_macs()
  	devolo,magic-2-wifi)
  		label_mac=$(macaddr_add "$(mtd_get_mac_binary art 0x1002)" 3)
  		;;
@@ -251,7 +251,7 @@ diff --git a/target/linux/ath79/generic/base-files/etc/board.d/02_network b/targ
 diff --git a/target/linux/ath79/generic/base-files/etc/hotplug.d/firmware/11-ath10k-caldata b/target/linux/ath79/generic/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
 --- a/target/linux/ath79/generic/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
 +++ b/target/linux/ath79/generic/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
-@@ -195,6 +195,13 @@ case "$FIRMWARE" in
+@@ -196,6 +196,13 @@ case "$FIRMWARE" in
  			/lib/firmware/ath10k/QCA9888/hw2.0/board.bin
  		rm /lib/firmware/ath10k/QCA9888/hw2.0/board-2.bin
  		;;
