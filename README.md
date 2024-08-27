@@ -82,79 +82,9 @@ cp.b $fileaddr 0x9f050000 $filesize
 reset
 ```
 
-## PLC
+## PLC (Powerline networking)
 
-SSH to device and run `/etc/init.d/plc setup`. Make selections and start PLC with `/etc/init.d/plc start`. Alternatively you can download plc scripts from [netadair.de](http://www.netadair.de/openwrt/)
-
-### Setup example
-
-1. (optional) Download QCA75XX-2.10.0.0032_modules_5-6_stripped.nvm to /etc/plc directory. This version is reported to be more stable than version on stock firmware.
-
-2. Run PLC setup helper
-
-    ```text
-    root@covrp2500_1:/etc/plc# /etc/init.d/plc setup
-    Download original firmware and extract files from /lib/plc to /etc/plc [y|n] y
-    Downloading 'http://pmdap.dlink.com.tw/PMD/GetAgileFile?itemNumber=FIR1800225&fileName=COVRP2500A1_FW101b08_decrypted.bin&fileSize=1.5990457E7;1.5992229E7;65141.0;'
-    Connecting to 60.248.210.49:80
-    Writing to 'COVRP2500A1_FW101b08_decrypted.bin'
-    COVRP2500A1_FW101b08 15615k --:--:-- ETA
-    Download completed (15990457 bytes)
-    Parallel unsquashfs: Using 1 processor
-    4 inodes (6 blocks) to write
-
-    [===================================================================|] 6/6 100%
-
-    created 4 files
-    created 3 directories
-    created 0 symlinks
-    created 0 devices
-    created 0 fifos
-    created 0 sockets
-    1) /etc/plc/COVRP2500AVA1_PIB100EU_WM.pib
-    2) /etc/plc/COVRP2500AVA1_PIB100NA_WM.pib
-    3) /etc/plc/COVRP2500AVA1_PIB100SG_WM.pib
-    Select PibPath [1-3]: 1
-    1) /etc/plc/MAC-7500-v2.2.2-03-X-CS.nvm
-    2) /etc/plc/QCA7500-2.10.0032_modules_5-6_stripped.nvm
-    Select NvmPath [1-2]: 2
-    NetworkPasswd (leave empty to use default plc_networkpwd): SomePassword
-    Enable plc [0-1]: 1
-    Automatically add to br-lan bridge [0-1]: 0
-    ```
-
-3. Start plc service
-
-    ```text
-    root@covrp2500_1:/etc/plc# /etc/init.d/plc start
-    ```
-
-4. Check PLC connection status after another device connected
-
-    NOTE! plctool does not work when eth0.3 is added to br-lan bridge
-
-    ```text
-    root@covrp2500_1:/etc/plc# plctool -i eth0.3 -m
-    eth0.3 00:B0:52:00:00:01 Fetch Network Information
-    eth0.3 XX:XX:XX:XX:XX:X Found 1 Network(s)
-
-    source address = XX:XX:XX:XX:XX:XX
-
-        network->NID = ZZ:ZZ:ZZ:ZZ:ZZ:ZZ:ZZ
-        network->SNID = 15
-        network->TEI = 1
-        network->ROLE = 0x02 (CCO)
-        network->CCO_DA = XX:XX:XX:XX:XX:XX
-        network->CCO_TEI = 1
-        network->STATIONS = 1
-
-            station->MAC = YY:YY:YY:YY:YY:YY
-            station->TEI = 2
-            station->BDA = F4:B5:20:44:BC:DE
-            station->AvgPHYDR_TX = 009 mbps Primary
-            station->AvgPHYDR_RX = 009 mbps Primary
-
-    ```
+See [wiki](https://openwrt.org/inbox/toh/d-link/covr-p2500_a1#powerline_configuration)
 
 ## Serial
 
