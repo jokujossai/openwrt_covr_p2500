@@ -4,18 +4,33 @@ on:
     tags:
       - 'v*'
       - 'snapshot*'
+  pull_request:
   workflow_dispatch: {}
 jobs:
   build-release-images:
     name: Build and Release Firmware Images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          key: downloads-${{ hashFiles('Makefile') }}
+          path: |
+            openwrt-*.tar.xz
+            firmware-utils-master.tar.gz
       - name: Build firmware images
         run: 'make images CURL_OPTS="-s"'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            openwrt-imagebuilder-*/bin/targets/*/*/openwrt-*.bin
+            openwrt-imagebuilder-*/bin/targets/*/*/openwrt-*.manifest
+          retention-days: 7
       - name: Release
-        uses: softprops/action-gh-release@v1
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
         with:
           body: |
             Automated release. Please see the project README.md for more information.

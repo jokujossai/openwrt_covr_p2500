@@ -3,7 +3,7 @@
 
 ALL_CURL_OPTS := $(CURL_OPTS) -L --fail --create-dirs -s
 
-VERSION := 23.05.2
+VERSION := 23.05.4
 GCC_VERSION := 12.3.0_musl
 BOARD := ath79
 SUBTARGET := generic
