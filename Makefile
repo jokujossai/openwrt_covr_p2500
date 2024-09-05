@@ -4,12 +4,12 @@
 ALL_CURL_OPTS := $(CURL_OPTS) -L --fail --create-dirs -s
 
 VERSION := 23.05.4
-GCC_VERSION := 12.3.0_musl
 BOARD := ath79
 SUBTARGET := generic
 ARCH := mips_24kc
 BUILDER := openwrt-imagebuilder-$(VERSION)-$(BOARD)-$(SUBTARGET).Linux-x86_64
-SDK := openwrt-sdk-$(VERSION)-$(BOARD)-$(SUBTARGET)_gcc-$(GCC_VERSION).Linux-x86_64
+SHA256_URL := https://downloads.openwrt.org/releases/23.05.4/targets/ath79/generic/sha256sums
+SDK := $(shell ([ -f sdk-version-$(VERSION).txt ] || curl -sf $(SHA256_URL) | grep openwrt-sdk-$(VERSION)-$(BOARD)-$(SUBTARGET)_gcc- | cut -d"*" -f2 | sed 's/\.tar\.xz$$//' > sdk-version-$(VERSION).txt) && cat sdk-version-$(VERSION).txt)
 PROFILES := dlink_covr-p2500-a1
 PACKAGES := luci squashfs-tools-unsquashfs
 EXTRA_IMAGE_NAME := custom
@@ -56,6 +56,8 @@ $(BUILDER): $(BUILDER).tar.xz firmware-utils-master.tar.gz patches/*.patch $(SDK
 	cp -f $(SDK)/.targetinfo $(BUILDER).tmp/.targetinfo
 	mv $(BUILDER).tmp $(BUILDER)
 
+builder: $(BUILDER)
+
 $(SDK).tar.xz:
 	curl $(ALL_CURL_OPTS) -O $(SDK_URL)
 
@@ -79,6 +81,8 @@ $(SDK): $(SDK).tar.xz firmware-utils-master.tar.gz patches/*.patch
 	cd $(SDK).tmp && make -f include/toplevel.mk TOPDIR="$(SDKDIR).tmp" prepare-tmpinfo || true
 	cp -f $(SDK).tmp/tmp/.targetinfo $(SDK).tmp/.targetinfo
 	mv $(SDK).tmp $(SDK)
+
+sdk: $(SDK)
 
 linux-include: $(BUILDER)
 	# Fetch DTS include dependencies
@@ -121,3 +125,4 @@ clean:
 	rm -rf openwrt-sdk-*
 	rm -f firmware-utils-master.tar.gz
 	rm -rf linux-include
+	rm -f sdk-version-*.txt
