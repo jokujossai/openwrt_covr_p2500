@@ -26,7 +26,7 @@ SDK_URL := https://downloads.openwrt.org/releases/$(VERSION)/targets/$(BOARD)/$(
 TOPDIR := $(CURDIR)/$(BUILDER)
 SDKDIR := $(CURDIR)/$(SDK)
 KDIR := $(TOPDIR)/build_dir/target-$(ARCH)_musl/linux-$(BOARD)_$(SUBTARGET)
-BUILDER_PATH := $(TOPDIR)/staging_dir/host/bin:$(SDKDIR)/staging_dir/toolchain-$(ARCH)_gcc-$(GCC_VERSION)/bin:$(PATH)
+BUILDER_PATH := $(TOPDIR)/staging_dir/host/bin:$(wildcard $(SDKDIR)/staging_dir/toolchain-$(ARCH)_gcc-*/bin):$(PATH)
 LINUX_VERSION = $(shell sed -n -e '/Linux-Version: / {s/Linux-Version: //p;q}' $(BUILDER)/.targetinfo)
 all: images
 
