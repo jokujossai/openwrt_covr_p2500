@@ -10,6 +10,7 @@ ARCH := mips_24kc
 BUILDER := openwrt-imagebuilder-$(VERSION)-$(BOARD)-$(SUBTARGET).Linux-x86_64
 SHA256_URL := https://downloads.openwrt.org/releases/23.05.4/targets/ath79/generic/sha256sums
 SDK := $(shell ([ -f sdk-version-$(VERSION).txt ] || curl -sf $(SHA256_URL) | grep openwrt-sdk-$(VERSION)-$(BOARD)-$(SUBTARGET)_gcc- | cut -d"*" -f2 | sed 's/\.tar\.xz$$//' > sdk-version-$(VERSION).txt) && cat sdk-version-$(VERSION).txt)
+GCC_VERSION := $(shell sed -n -e '/gcc-/ {s/.*gcc-//p;q}' sdk-version-$(VERSION).txt | cut -d_ -f1)
 PROFILES := dlink_covr-p2500-a1
 PACKAGES := luci squashfs-tools-unsquashfs
 EXTRA_IMAGE_NAME := custom
@@ -26,7 +27,7 @@ SDK_URL := https://downloads.openwrt.org/releases/$(VERSION)/targets/$(BOARD)/$(
 TOPDIR := $(CURDIR)/$(BUILDER)
 SDKDIR := $(CURDIR)/$(SDK)
 KDIR := $(TOPDIR)/build_dir/target-$(ARCH)_musl/linux-$(BOARD)_$(SUBTARGET)
-BUILDER_PATH := $(TOPDIR)/staging_dir/host/bin:$(SDKDIR)/staging_dir/toolchain-$(ARCH)_gcc-*/bin:$(PATH)
+BUILDER_PATH := $(TOPDIR)/staging_dir/host/bin:$(SDKDIR)/staging_dir/toolchain-$(ARCH)_gcc-$(GCC_VERSION)_musl/bin:$(PATH)
 LINUX_VERSION = $(shell sed -n -e '/Linux-Version: / {s/Linux-Version: //p;q}' $(BUILDER)/.targetinfo)
 all: images
 
