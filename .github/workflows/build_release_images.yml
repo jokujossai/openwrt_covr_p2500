@@ -23,6 +23,7 @@ jobs:
           path: |
             openwrt-*.tar.xz
             sdk-version-*.txt
+          save-always: true
       - name: Build firmware images
         run: 'make images CURL_OPTS="-s"'
       - uses: actions/upload-artifact@v4
