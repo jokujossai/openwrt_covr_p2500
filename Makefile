@@ -33,24 +33,13 @@ all: images
 $(BUILDER).tar.xz:
 	curl $(ALL_CURL_OPTS) -O $(BUILDER_URL)
 
-firmware-utils-master.tar.gz:
-	curl $(ALL_CURL_OPTS) "https://git.openwrt.org/?p=project/firmware-utils.git;a=snapshot;h=refs/heads/master;sf=tgz" -o firmware-utils-master.tar.gz
-
-$(BUILDER): $(BUILDER).tar.xz firmware-utils-master.tar.gz patches/*.patch $(SDK)
+$(BUILDER): $(BUILDER).tar.xz patches/*.patch $(SDK)
 	rm -rf $(BUILDER) $(BUILDER).tmp
 	mkdir $(BUILDER).tmp
 	tar -xf $(BUILDER).tar.xz -C $(BUILDER).tmp --strip-components=1
 
-	# Fetch firmware utility sources to apply patches
-	mkdir -p $(BUILDER).tmp/tools/firmware-utils
-	tar -xf firmware-utils-master.tar.gz -C $(BUILDER).tmp/tools/firmware-utils --strip-components=1
-
 	# Apply all patches
 	$(foreach file, $(sort $(wildcard patches/*.patch)), echo Applying patch $(file); patch -d $(BUILDER).tmp -p1 < $(file);)
-	cd $(BUILDER).tmp/tools/firmware-utils \
-		&& cmake . \
-		&& make dlink-sge-image
-	mv $(BUILDER).tmp/tools/firmware-utils/dlink-sge-image $(TOPDIR).tmp/staging_dir/host/bin/dlink-sge-image
 
 	# Update .targetinfo
 	cp -f $(SDK)/.targetinfo $(BUILDER).tmp/.targetinfo
@@ -61,21 +50,13 @@ builder: $(BUILDER)
 $(SDK).tar.xz:
 	curl $(ALL_CURL_OPTS) -O $(SDK_URL)
 
-$(SDK): $(SDK).tar.xz firmware-utils-master.tar.gz patches/*.patch
+$(SDK): $(SDK).tar.xz patches/*.patch
 	rm -rf $(SDK) $(SDK).tmp
 	mkdir $(SDK).tmp
 	tar -xf $(SDK).tar.xz -C $(SDK).tmp --strip-components=1
 
-	# Fetch firmware utility sources to apply patches
-	mkdir -p $(SDK).tmp/tools/firmware-utils
-	tar -xf firmware-utils-master.tar.gz -C $(SDK).tmp/tools/firmware-utils --strip-components=1
-
 	# Apply all patches
 	$(foreach file, $(sort $(wildcard patches/*.patch)), echo Applying patch $(file); patch -d $(SDK).tmp -p1 < $(file);)
-	cd $(SDK).tmp/tools/firmware-utils \
-		&& cmake . \
-		&& make dlink-sge-image
-	mv $(SDK).tmp/tools/firmware-utils/dlink-sge-image $(SDKDIR).tmp/staging_dir/host/bin/dlink-sge-image
 
 	# Regenerate .targetinfo
 	cd $(SDK).tmp && make -f include/toplevel.mk TOPDIR="$(SDKDIR).tmp" prepare-tmpinfo || true
