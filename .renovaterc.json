@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["github-actions", "regex"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": [
+        "\\sVERSION\\s+:=\\s+(?<currentValue>[0-9\\.]+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "openwrt/openwrt",
+      "currentValueTemplate": "v{{{currentValue}}}",
+      "versioningTemplate": "docker"
+    }
+  ]
+}

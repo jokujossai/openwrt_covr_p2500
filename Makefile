@@ -4,12 +4,13 @@
 ALL_CURL_OPTS := $(CURL_OPTS) -L --fail --create-dirs -s
 
 VERSION := 23.05.4
-GCC_VERSION := 12.3.0_musl
 BOARD := ath79
 SUBTARGET := generic
 ARCH := mips_24kc
 BUILDER := openwrt-imagebuilder-$(VERSION)-$(BOARD)-$(SUBTARGET).Linux-x86_64
-SDK := openwrt-sdk-$(VERSION)-$(BOARD)-$(SUBTARGET)_gcc-$(GCC_VERSION).Linux-x86_64
+SHA256_URL := https://downloads.openwrt.org/releases/23.05.4/targets/ath79/generic/sha256sums
+SDK := $(shell ([ -f sdk-version-$(VERSION).txt ] || curl -sf $(SHA256_URL) | grep openwrt-sdk-$(VERSION)-$(BOARD)-$(SUBTARGET)_gcc- | cut -d"*" -f2 | sed 's/\.tar\.xz$$//' > sdk-version-$(VERSION).txt) && cat sdk-version-$(VERSION).txt)
+GCC_VERSION := $(shell sed -n -e '/gcc-/ {s/.*gcc-//p;q}' sdk-version-$(VERSION).txt | cut -d_ -f1)
 PROFILES := dlink_covr-p2500-a1
 PACKAGES := luci squashfs-tools-unsquashfs
 EXTRA_IMAGE_NAME := custom
@@ -26,59 +27,44 @@ SDK_URL := https://downloads.openwrt.org/releases/$(VERSION)/targets/$(BOARD)/$(
 TOPDIR := $(CURDIR)/$(BUILDER)
 SDKDIR := $(CURDIR)/$(SDK)
 KDIR := $(TOPDIR)/build_dir/target-$(ARCH)_musl/linux-$(BOARD)_$(SUBTARGET)
-BUILDER_PATH := $(TOPDIR)/staging_dir/host/bin:$(SDKDIR)/staging_dir/toolchain-$(ARCH)_gcc-$(GCC_VERSION)/bin:$(PATH)
+BUILDER_PATH := $(TOPDIR)/staging_dir/host/bin:$(SDKDIR)/staging_dir/toolchain-$(ARCH)_gcc-$(GCC_VERSION)_musl/bin:$(PATH)
 LINUX_VERSION = $(shell sed -n -e '/Linux-Version: / {s/Linux-Version: //p;q}' $(BUILDER)/.targetinfo)
 all: images
 
 $(BUILDER).tar.xz:
 	curl $(ALL_CURL_OPTS) -O $(BUILDER_URL)
 
-firmware-utils-master.tar.gz:
-	curl $(ALL_CURL_OPTS) "https://git.openwrt.org/?p=project/firmware-utils.git;a=snapshot;h=refs/heads/master;sf=tgz" -o firmware-utils-master.tar.gz
-
-$(BUILDER): $(BUILDER).tar.xz firmware-utils-master.tar.gz patches/*.patch $(SDK)
+$(BUILDER): $(BUILDER).tar.xz patches/*.patch $(SDK)
 	rm -rf $(BUILDER) $(BUILDER).tmp
 	mkdir $(BUILDER).tmp
 	tar -xf $(BUILDER).tar.xz -C $(BUILDER).tmp --strip-components=1
 
-	# Fetch firmware utility sources to apply patches
-	mkdir -p $(BUILDER).tmp/tools/firmware-utils
-	tar -xf firmware-utils-master.tar.gz -C $(BUILDER).tmp/tools/firmware-utils --strip-components=1
-
 	# Apply all patches
 	$(foreach file, $(sort $(wildcard patches/*.patch)), echo Applying patch $(file); patch -d $(BUILDER).tmp -p1 < $(file);)
-	cd $(BUILDER).tmp/tools/firmware-utils \
-		&& cmake . \
-		&& make dlink-sge-image
-	mv $(BUILDER).tmp/tools/firmware-utils/dlink-sge-image $(TOPDIR).tmp/staging_dir/host/bin/dlink-sge-image
 
 	# Update .targetinfo
 	cp -f $(SDK)/.targetinfo $(BUILDER).tmp/.targetinfo
 	mv $(BUILDER).tmp $(BUILDER)
 
+builder: $(BUILDER)
+
 $(SDK).tar.xz:
 	curl $(ALL_CURL_OPTS) -O $(SDK_URL)
 
-$(SDK): $(SDK).tar.xz firmware-utils-master.tar.gz patches/*.patch
+$(SDK): $(SDK).tar.xz patches/*.patch
 	rm -rf $(SDK) $(SDK).tmp
 	mkdir $(SDK).tmp
 	tar -xf $(SDK).tar.xz -C $(SDK).tmp --strip-components=1
 
-	# Fetch firmware utility sources to apply patches
-	mkdir -p $(SDK).tmp/tools/firmware-utils
-	tar -xf firmware-utils-master.tar.gz -C $(SDK).tmp/tools/firmware-utils --strip-components=1
-
 	# Apply all patches
 	$(foreach file, $(sort $(wildcard patches/*.patch)), echo Applying patch $(file); patch -d $(SDK).tmp -p1 < $(file);)
-	cd $(SDK).tmp/tools/firmware-utils \
-		&& cmake . \
-		&& make dlink-sge-image
-	mv $(SDK).tmp/tools/firmware-utils/dlink-sge-image $(SDKDIR).tmp/staging_dir/host/bin/dlink-sge-image
 
 	# Regenerate .targetinfo
 	cd $(SDK).tmp && make -f include/toplevel.mk TOPDIR="$(SDKDIR).tmp" prepare-tmpinfo || true
 	cp -f $(SDK).tmp/tmp/.targetinfo $(SDK).tmp/.targetinfo
 	mv $(SDK).tmp $(SDK)
+
+sdk: $(SDK)
 
 linux-include: $(BUILDER)
 	# Fetch DTS include dependencies
@@ -121,3 +107,7 @@ clean:
 	rm -rf openwrt-sdk-*
 	rm -f firmware-utils-master.tar.gz
 	rm -rf linux-include
+	rm -f sdk-version-*.txt
+
+openwrt-version:
+	@echo $(VERSION)

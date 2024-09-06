@@ -9,16 +9,21 @@ on:
 jobs:
   build-release-images:
     name: Build and Release Firmware Images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: OpenWRT version
+        id: openwrt-version
+        run: |
+          echo "version=$(make openwrt-version)" >> $GITHUB_OUTPUT
       - uses: actions/cache@v4
         with:
-          key: downloads-${{ hashFiles('Makefile') }}
+          key: downloads-${{steps.openwrt-version.outputs.version }}
           path: |
             openwrt-*.tar.xz
-            firmware-utils-master.tar.gz
+            sdk-version-*.txt
+          save-always: true
       - name: Build firmware images
         run: 'make images CURL_OPTS="-s"'
       - uses: actions/upload-artifact@v4

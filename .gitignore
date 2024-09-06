@@ -3,3 +3,4 @@ openwrt-sdk-*
 firmware-utils-master.tar.gz
 linux-sources
 linux-include
+sdk-version-*.txt
