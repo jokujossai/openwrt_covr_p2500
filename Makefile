@@ -107,3 +107,6 @@ clean:
 	rm -f firmware-utils-master.tar.gz
 	rm -rf linux-include
 	rm -f sdk-version-*.txt
+
+openwrt-version:
+	@echo $(VERSION)
