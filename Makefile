@@ -3,12 +3,12 @@
 
 ALL_CURL_OPTS := $(CURL_OPTS) -L --fail --create-dirs -s
 
-VERSION := 23.05.4
+VERSION := 23.05.5
 BOARD := ath79
 SUBTARGET := generic
 ARCH := mips_24kc
 BUILDER := openwrt-imagebuilder-$(VERSION)-$(BOARD)-$(SUBTARGET).Linux-x86_64
-SHA256_URL := https://downloads.openwrt.org/releases/23.05.4/targets/ath79/generic/sha256sums
+SHA256_URL := https://downloads.openwrt.org/releases/$(VERSION)/targets/ath79/generic/sha256sums
 SDK := $(shell ([ -f sdk-version-$(VERSION).txt ] || curl -sf $(SHA256_URL) | grep openwrt-sdk-$(VERSION)-$(BOARD)-$(SUBTARGET)_gcc- | cut -d"*" -f2 | sed 's/\.tar\.xz$$//' > sdk-version-$(VERSION).txt) && cat sdk-version-$(VERSION).txt)
 GCC_VERSION := $(shell sed -n -e '/gcc-/ {s/.*gcc-//p;q}' sdk-version-$(VERSION).txt | cut -d_ -f1)
 PROFILES := dlink_covr-p2500-a1
