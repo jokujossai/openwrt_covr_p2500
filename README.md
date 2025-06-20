@@ -1,4 +1,6 @@
-# OpenWRT image for D-Link COVR-P2500 A1
+# OpenWrt image for D-Link COVR-P2500 A1
+
+**NOTE**: _This repository is longer being maintained. Latest firmware can be downloaded from [OpenWrt firmware selector](https://firmware-selector.openwrt.org/)_
 
 ## Overview
 
